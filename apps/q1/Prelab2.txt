@@ -1,0 +1,45 @@
+How many semaphores and locks are available in DLXOS, respectively?
+    32 semaphores, 64 locks
+
+What are the system calls to create, acquire and release a lock?
+    lock_create(), lock_acquire(lock_t lock), lock_release(lock_t lock);
+
+How is a semaphore created in DLXOS?
+    By calling the user API 'sem_create'.
+    This function executes the "trap" assembly instruction, passing it the number 0x450.
+    The trap instruction transfers control to the _intrhandler which calls "dointerrupt".
+    Within "dointerrupt", for TRAP_SEM_CREATE (defined as 0x450), the function SemCreate is invoked.
+    The "SemCreate" function gets a free semaphore, initializes it and returns a handle to it.
+
+
+Explain how lock_acquire, lock_release, sem_signal and sem_wait work.
+    As explained in the previous question's answer, each of these APIs has an associated number which is passed to the 
+    "trap" assembly instruction when they are called. Within "dointerrupt", there are different case statments for each of them.
+    1. lock_acquire: In "dointerrupt", the function "LockHandleAcquire" is invoked which in turn calls the "LockAcquire" function
+        if the lock is valid (is in the range [0, 63]) and is in use. Inside "LockAcquire", interrupts are disabled and the PID of 
+        the process holding the lock is checked. If it matches with the current program's PID, nothing else to do, we restore interrupts.
+        If lock is free, the current process acquires lock and we restore interrupts. If some other process is holding the lock, then the 
+        current process is added to the lock acquire queue and it is put to sleep before enabling interrupts.
+    
+    2. lock_release: In "dointerrupt", the function "LockHandleRelease" is invoked which in turn calls the "LockRelease" function
+        if the lock is valid (is in the range [0, 63]) and is in use. Inside "LockRelease", interrupts are disabled and the PID of 
+        the process holding the lock is checked. If it does not match with the current program's PID, its unexpected so we return "SYNC_FAIL".
+        If it matches, we check if there are any processes waiting for this lock. If there is/are, we assign the lock to the first 
+        process in queue and wake up the process. Then we restore interrupts and return "SYNC_SUCCESS".
+    
+    3. sem_signal: In "dointerrupt", the function "SemHandleSignal" is invoked which in turn calls the "SemSignal" function
+        if the semaphore is valid (is in the range [0, 31]) and is in use. Inside "SemSignal", interrupts are disabled and semaphore's counter
+        is incremented. Then the counter is checked to see if there is any process to wake up (count > 0). If there is we wake up the process
+        and decrement the counter. We finally restore interrupts and return 'SYNC_SUCCESS'.
+    
+    4. sem_wait: In "dointerrupt", the function "SemHandleWait" is invoked which in turn calls the "SemWait" function
+        if the semaphore is valid (is in the range [0, 31]) and is in use. Inside "SemWait", interrupts are disabled and semaphore's counter
+        is checked. If the counter is less than or equal to 0, that is unavailable, the current process is put to sleep. Note that we do not
+        decrement the counter here as we handle that in SemSignal. If the counter is greater than 0, then decrement the counter, essentially 
+        here the current process is granted permission to move forward. We then restore interrupts and return 'SYNC_SUCCESS'.
+
+
+What is a handle and how is it used to access semaphores in DLXOS?
+    Handles are pointers to the semaphores/locks. Any process can access a particular lock/semaphore through its handle.
+    A handle to a semaphore/lock is essentially its index in the array of semaphores/locks.
+    

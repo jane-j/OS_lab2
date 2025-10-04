@@ -1,0 +1,42 @@
+cd ../../bin; dlxsim -x os.dlx.obj -a -u makeprocs.dlx.obj 3 5 ; ee469_fixterminal
+Stack=0x1fffc0, pc starting at 0x10fa0
+Got 4 arguments.
+Available memory: 0x1b7d8 -> 0x200000.
+Argument count is 4.
+Argument 0 is -u.
+Argument 1 is makeprocs.dlx.obj.
+Argument 2 is 3.
+Argument 3 is 5.
+Number of molecules to be injected: N3: 3, H2O: 5
+An N3 molecule was injected
+An N3 molecule was injected
+An N3 molecule was injected
+An H2O molecule was injected
+An N molecule is created
+An H2O molecule was injected
+An H2O molecule was injected
+An N molecule is created
+An N molecule is created
+An H2 molecule is created
+An H2O molecule was injected
+An N molecule is created
+An H2 molecule is created
+An O2 molecule is created
+An NO2 molecule is created
+An H2O molecule was injected
+An H2 molecule is created
+An N molecule is created
+An N molecule is created
+An H2 molecule is created
+An N molecule is created
+An NO2 molecule is created
+An N molecule is created
+An N molecule is created
+An O2 molecule is created
+All other processes completed, exiting main process.
+No runnable processes - exiting!
+Exiting at program request.
+Instructions executed: 17758450
+Time simulated: 17.758 secs
+Real time elapsed: 0.441 secs
+Execution rate: 40.30M simulated instructions per real second.

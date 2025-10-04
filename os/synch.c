@@ -13,6 +13,7 @@
 
 static Sem sems[MAX_SEMS]; 	// All semaphores in the system
 static Lock locks[MAX_LOCKS];   // All locks in the system
+static Cond conds[MAX_CONDS];
 
 extern struct PCB *currentPCB; 
 //----------------------------------------------------------------------
@@ -287,6 +288,7 @@ int LockRelease(Lock *k) {
 
   if (k->pid != GetCurrentPid()) {
     dbprintf('s', "LockRelease: Proc %d does not own lock %d.\n", GetCurrentPid(), (int)(k-locks));
+    printf("Here failed!\n");
     return SYNC_FAIL;
   }
   k->pid = -1;
@@ -333,6 +335,7 @@ int LockTransfer(Lock *k, PCB *pcb) {
 
   if (k->pid != GetCurrentPid()) {
     dbprintf('s', "LockTransfer: Proc %d does not own lock %d.\n", GetCurrentPid(), (int)(k-locks));
+    printf("lock tranfsfer failed here\n");
     return SYNC_FAIL;
   }
 
@@ -372,7 +375,35 @@ int LockTransfer(Lock *k, PCB *pcb) {
 //--------------------------------------------------------------------------
 cond_t CondCreate(lock_t lock) {
   // Your code goes here
-  return SYNC_FAIL;
+  cond_t cond;
+  uint32 intrval;
+
+  intrval = DisableIntrs();
+  for(cond=0; cond<MAX_CONDS; cond++) {
+    if(conds[cond].inuse==0) {
+      conds[cond].inuse = 1;
+      break;
+    }
+  }
+  RestoreIntrs(intrval);
+  if(cond==MAX_CONDS) return INVALID_COND;
+
+  if(CondInit(&conds[cond], lock) != SYNC_SUCCESS) return INVALID_COND;
+  return cond;
+}
+
+int CondInit(Cond *cond, lock_t l) {
+  if(!cond) return SYNC_FAIL;
+  if (AQueueInit (&cond->waiting) != QUEUE_SUCCESS) {
+    printf("FATAL ERROR: could not initialize conditional var waiting queue in CondInit!\n");
+    exitsim();
+  }
+  if (l < 0) return SYNC_FAIL;
+  if (l >= MAX_LOCKS) return SYNC_FAIL;
+  if (!locks[l].inuse) return SYNC_FAIL;
+  
+  cond->lock = &locks[l];
+  return SYNC_SUCCESS;
 }
 
 //---------------------------------------------------------------------------
@@ -398,10 +429,39 @@ cond_t CondCreate(lock_t lock) {
 //---------------------------------------------------------------------------
 int CondHandleWait(cond_t c) {
   // Your code goes here
-  return SYNC_SUCCESS;
+  if (c < 0) return SYNC_FAIL;
+  if (c >= MAX_CONDS) return SYNC_FAIL;
+  if (!conds[c].inuse) return SYNC_FAIL;
+  return CondWait(&conds[c]);
 }
 
+int CondWait(Cond *cond) {
+  Link *l;
+  int intrval;
 
+  if(!cond) return SYNC_FAIL;
+  if(!cond->lock) return SYNC_FAIL;
+  
+  if(LockRelease(cond->lock) != SYNC_SUCCESS) return SYNC_FAIL;
+  
+  intrval = DisableIntrs();
+  
+  if ((l = AQueueAllocLink ((void *)currentPCB)) == NULL) {
+    printf("FATAL ERROR: could not allocate link for conditional var queue in CondWait!\n");
+    exitsim();
+  }
+  if (AQueueInsertLast (&cond->waiting, l) != QUEUE_SUCCESS) {
+    printf("FATAL ERROR: could not insert new link into conditional var waiting queue in CondWait!\n");
+    exitsim();
+  }
+  ProcessSleep();
+  
+  RestoreIntrs (intrval);
+  
+  if(LockAcquire(cond->lock) != SYNC_SUCCESS) return SYNC_FAIL;
+  
+  return SYNC_SUCCESS;
+}
 
 //---------------------------------------------------------------------------
 //	CondHandleSignal
@@ -419,5 +479,37 @@ int CondHandleWait(cond_t c) {
 //---------------------------------------------------------------------------
 int CondHandleSignal(cond_t c) {
   // Your code goes here
+  if (c < 0) return SYNC_FAIL;
+  if (c >= MAX_CONDS) return SYNC_FAIL;
+  if (!conds[c].inuse) return SYNC_FAIL;
+  return CondSignal(&conds[c]);
+}
+
+int CondSignal(Cond *cond) {
+  Link *l;
+  int intrval;
+
+  if(!cond) return SYNC_FAIL;
+  if(!cond->lock) return SYNC_FAIL;
+  
+  intrval = DisableIntrs();
+
+  if(!AQueueEmpty(&(cond->waiting))) {
+    l = AQueueFirst(&cond->waiting);
+    ProcessWakeup(l->object);
+    if(LockTransfer(cond->lock, l->object) != SYNC_SUCCESS) {
+      printf("FATAL ERROR: could not transfer lock in CondSignal!\n");
+      exitsim();
+    }
+    if (AQueueRemove(&l) != QUEUE_SUCCESS) { 
+      printf("FATAL ERROR: could not remove link from conditional var queue in CondSignal!\n");
+      exitsim();
+    }
+  }
+
+  RestoreIntrs (intrval);
+  
+  if(LockAcquire(cond->lock) != SYNC_SUCCESS) return SYNC_FAIL;
+  
   return SYNC_SUCCESS;
 }
