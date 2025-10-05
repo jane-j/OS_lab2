@@ -37,7 +37,7 @@ void main (int argc, char *argv[])
     Exit();
   }
  
- // Printf("Consumer: My PID is %d\n", Getpid());
+  Printf("Consumer: My PID is %d\n", Getpid());
   
   //Consumer Code
   while(num_chars < STRING_SIZE) {
@@ -63,6 +63,7 @@ void main (int argc, char *argv[])
     }
 
     //Release lock
+    // Printf("Consumer %d releasing lock\n", Getpid());
     if(lock_release(buffer_lock) != SYNC_SUCCESS){
       Printf("Bad lock buffer_lock (%d) release in ", buffer_lock); Printf(argv[0]); Printf("\n");
       Exit();

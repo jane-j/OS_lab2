@@ -1,7 +1,7 @@
 #ifndef __Q4__
 #define __Q4__
 
-#define BUF_SIZE 32
+#define BUF_SIZE 5
 #define STRING_SIZE 10
 
 typedef struct circular_buf {

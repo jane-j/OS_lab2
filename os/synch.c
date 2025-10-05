@@ -288,7 +288,6 @@ int LockRelease(Lock *k) {
 
   if (k->pid != GetCurrentPid()) {
     dbprintf('s', "LockRelease: Proc %d does not own lock %d.\n", GetCurrentPid(), (int)(k-locks));
-    printf("Here failed!\n");
     return SYNC_FAIL;
   }
   k->pid = -1;
@@ -335,7 +334,6 @@ int LockTransfer(Lock *k, PCB *pcb) {
 
   if (k->pid != GetCurrentPid()) {
     dbprintf('s', "LockTransfer: Proc %d does not own lock %d.\n", GetCurrentPid(), (int)(k-locks));
-    printf("lock tranfsfer failed here\n");
     return SYNC_FAIL;
   }
 
@@ -441,7 +439,7 @@ int CondWait(Cond *cond) {
 
   if(!cond) return SYNC_FAIL;
   if(!cond->lock) return SYNC_FAIL;
-  
+
   if(LockRelease(cond->lock) != SYNC_SUCCESS) return SYNC_FAIL;
   
   intrval = DisableIntrs();
@@ -457,9 +455,7 @@ int CondWait(Cond *cond) {
   ProcessSleep();
   
   RestoreIntrs (intrval);
-  
-  if(LockAcquire(cond->lock) != SYNC_SUCCESS) return SYNC_FAIL;
-  
+
   return SYNC_SUCCESS;
 }
 
@@ -495,21 +491,24 @@ int CondSignal(Cond *cond) {
   intrval = DisableIntrs();
 
   if(!AQueueEmpty(&(cond->waiting))) {
+    // Wake up first process waiting on the condition variable
     l = AQueueFirst(&cond->waiting);
     ProcessWakeup(l->object);
+    // Transfer lock to woken up process
     if(LockTransfer(cond->lock, l->object) != SYNC_SUCCESS) {
       printf("FATAL ERROR: could not transfer lock in CondSignal!\n");
       exitsim();
     }
+    //Remove process from condition variable queue
     if (AQueueRemove(&l) != QUEUE_SUCCESS) { 
       printf("FATAL ERROR: could not remove link from conditional var queue in CondSignal!\n");
       exitsim();
-    }
+    }   
   }
 
   RestoreIntrs (intrval);
-  
+
   if(LockAcquire(cond->lock) != SYNC_SUCCESS) return SYNC_FAIL;
-  
+    
   return SYNC_SUCCESS;
 }

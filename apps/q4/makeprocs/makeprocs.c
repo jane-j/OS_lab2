@@ -82,9 +82,9 @@ void main (int argc, char *argv[])
   //Create child processes : Producers and Consumers
   for(i=0; i<numprocs; i++) {
     process_create(PRODUCER_FILE_TO_RUN, h_mem_str, s_procs_completed_str, c_notFull_str, c_notEmpty_str, buffer_lock_str, NULL);
-    Printf("Producer %d created\n", i);
+    //Printf("Producer %d created\n", i);
     process_create(CONSUMER_FILE_TO_RUN, h_mem_str, s_procs_completed_str, c_notFull_str, c_notEmpty_str, buffer_lock_str, NULL);
-    Printf("Consumer %d created\n", i);
+    //Printf("Consumer %d created\n", i);
   }
 
   //Wait until all spawned processes have finished.
